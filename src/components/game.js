@@ -22,5 +22,7 @@ class Game {
   updateScore(value) {
     this.score += value;
     scoreEl.innerText = this.score;
+    scoreEl.classList.add('pop');
+    setTimeout(() => scoreEl.classList.remove('pop'), 10);
   }
 }

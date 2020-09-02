@@ -1,4 +1,7 @@
 const options = document.querySelector('.options');
+// const optionsList = options.querySelector('.options_list');
+// const optionsArrow = options.querySelector('.options_arrow');
+
 const scoreRoundEl = document.querySelector('.score-level_round');
 const scoreLevelEl = document.querySelector('.score-level_text');
 const scoreOverlayEl = document.querySelectorAll(
@@ -20,7 +23,6 @@ class Level {
   }
 
   init() {
-    console.log('generate');
     this.points = 100;
     this.puzzle.generate();
     this.animateIntro();
@@ -52,6 +54,8 @@ class Level {
     this.extras.forEach((extra, index) => {
       if (extra.velocity) {
         extra.position[0] += extra.velocity;
+        extra.position[1] =
+          extra.position[1] + Math.sin((extra.position[0] / 100) * Math.PI) * 5;
 
         if (
           extra.position[0] < 0 ||
@@ -154,6 +158,10 @@ class Level {
     });
 
     Promise.all(promises).then(() => {
+      document.documentElement.style.cssText = `--placholderArrowPosition: ${
+        this.puzzle.characters.find(char => char.isPlaceholder).position[0] -
+        options.getBoundingClientRect().x
+      }px`;
       options.classList.remove('options-hidden');
       scoreRoundEl.classList.remove('hidden');
 
