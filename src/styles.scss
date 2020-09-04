@@ -69,18 +69,6 @@ canvas {
     transform: scale(0.8);
   }
 
-  // &_arrow {
-  //   position: relative;
-
-  //   background-color: red;
-
-  //   transform: translateY(-50%);
-
-  // }
-
-  // &_list {
-  // }
-
   .option {
     display: flex;
     align-items: center;
@@ -167,6 +155,16 @@ canvas {
 
   &_text {
     min-width: 120px;
+
+    opacity: 1;
+    transform: translateY(0);
+    transition: none;
+
+    &.pop {
+      opacity: 0;
+      transform: translateY(-50%);
+      transition: all 0.2s ease-in-out;
+    }
   }
 
   &_indicator {

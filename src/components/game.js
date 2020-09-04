@@ -23,6 +23,10 @@ class Game {
     this.score += value;
     scoreEl.innerText = this.score;
     scoreEl.classList.add('pop');
-    setTimeout(() => scoreEl.classList.remove('pop'), 10);
+    scoreLevelEl.classList.add('pop');
+    setTimeout(() => scoreLevelEl.classList.remove('pop'), 1000);
+    setTimeout(() => {
+      scoreEl.classList.remove('pop');
+    }, 210);
   }
 }

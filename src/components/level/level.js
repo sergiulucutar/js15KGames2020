@@ -1,10 +1,8 @@
-const options = document.querySelector('.options');
-// const optionsList = options.querySelector('.options_list');
-// const optionsArrow = options.querySelector('.options_arrow');
+var options = document.querySelector('.options');
 
-const scoreRoundEl = document.querySelector('.score-level_round');
-const scoreLevelEl = document.querySelector('.score-level_text');
-const scoreOverlayEl = document.querySelectorAll(
+var scoreRoundEl = document.querySelector('.score-level_round');
+var scoreLevelEl = document.querySelector('.score-level_text');
+var scoreOverlayEl = document.querySelectorAll(
   '.score-level_indicator-overlay'
 );
 
@@ -139,34 +137,35 @@ class Level {
 
     // this.addRenderHook(this.portalRenderer(), 'portal');
 
-    const promises = [];
-    this.puzzle.characters.forEach((character, index) => {
-      character.alpha = 0;
+    Promise.all(this.drawPlaceHolders())
+      .then(() => {
+        const promises = [];
+        this.puzzle.characters.forEach((character, index) => {
+          character.alpha = 0;
 
-      promises.push(
-        new Promise(resolve => {
-          // this.addRenderHook(
-          //   this.drawPortal(null, character.position, index),
-          //   `portal${index}`
-          // );
-          this.addRenderHook(
-            this.showCharacter.bind(this, resolve, character, index),
-            `character${index}`
+          promises.push(
+            new Promise(resolve => {
+              this.addRenderHook(
+                this.showCharacter.bind(this, resolve, character, index),
+                `character${index}`
+              );
+            })
           );
-        })
-      );
-    });
+        });
 
-    Promise.all(promises).then(() => {
-      document.documentElement.style.cssText = `--placholderArrowPosition: ${
-        this.puzzle.characters.find(char => char.isPlaceholder).position[0] -
-        options.getBoundingClientRect().x
-      }px`;
-      options.classList.remove('options-hidden');
-      scoreRoundEl.classList.remove('hidden');
+        return Promise.all(promises);
+      })
+      .then(() => {
+        // set options arrow
+        document.documentElement.style.cssText = `--placholderArrowPosition: ${
+          this.puzzle.characters.find(char => char.isPlaceholder).position[0] -
+          options.getBoundingClientRect().x
+        }px`;
+        options.classList.remove('options-hidden');
+        scoreRoundEl.classList.remove('hidden');
 
-      this.isIntroPlaying = false;
-    });
+        this.isIntroPlaying = false;
+      });
   }
 
   animateOutro(done) {
@@ -225,11 +224,49 @@ class Level {
 
   showCharacter(done, character, index) {
     if (character.alpha > 0.98) {
+      this.removeRenderHook(`portal${index}`);
       this.removeRenderHook(`character${index}`);
       done();
     }
 
     character.alpha += (1 - character.alpha) * 0.1;
+  }
+
+  drawPlaceHolders() {
+    const promises = [];
+    this.puzzle.characters.forEach((character, index) => {
+      promises.push(
+        new Promise(resolve => {
+          this.addRenderHook(
+            this.drawPlaceHolder(resolve, character, index),
+            `portal${index}`
+          );
+        })
+      );
+    });
+
+    return promises;
+  }
+
+  drawPlaceHolder(done, character) {
+    let time = 0;
+    character.alpha = 0;
+
+    return ctx => {
+      if (time >= 0.6) {
+        done();
+      } else {
+      }
+      time += (1 - time) * 0.15;
+
+      ctx.fillStyle = '#E9ECF5';
+      ctx.fillRect(
+        character.position[0] - (character.thickness / 2) * time,
+        character.position[1],
+        character.thickness * time,
+        character.thickness * 4.5 * time
+      );
+    };
   }
 
   // drawPortal(done, position, index) {
