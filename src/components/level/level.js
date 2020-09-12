@@ -1,5 +1,3 @@
-var options = document.querySelector('.options');
-
 var scoreRoundEl = document.querySelector('.score-level_round');
 var scoreLevelEl = document.querySelector('.score-level_text');
 var scoreOverlayEl = document.querySelectorAll(
@@ -9,44 +7,56 @@ var scoreOverlayEl = document.querySelectorAll(
 class Level {
   constructor(game) {
     this.game = game;
+    this.puzzleGenerator = new PuzzleGenerator(game);
+    this.optionsGenerator = new OptionsGenerator();
+    this.renderer = new LevelRenderer(game, this);
 
-    this.puzzle = new Puzzle(game);
-
-    // animation
-    this.isIntroPlaying = false;
-    this.renderHooks = {};
     this.extras = [];
+    this.isIntroPlaying = false;
 
-    this.init();
+    this.rounds = 0;
+    this.nextRound();
   }
 
-  init() {
+  nextRound() {
+    this.rounds++;
     this.points = 100;
-    this.puzzle.generate();
+    this.puzzle = this.puzzleGenerator.generate(
+      PartyGenerator.generateParty(this.rounds)
+    );
+
+    this.optionsGenerator.createOptions(
+      this.puzzle,
+      this.handleOptionSelected.bind(this)
+    );
     this.animateIntro();
-    this.displayOptions();
   }
 
-  draw() {
-    Object.values(this.renderHooks).forEach(hook => {
-      hook(this.game.ctx);
-    });
+  reset() {
+    this.rounds = 0;
+    this.extras = [];
+    this.nextRound();
+  }
 
-    this.puzzle.characters.forEach(character => {
-      character.draw(this.game.ctx);
-    });
-
-    this.extras.forEach(extra => {
-      extra.draw(this.game.ctx);
-    });
+  render() {
+    this.renderer.render(this.puzzle);
   }
 
   update() {
-    if (!this.isIntroPlaying && this.points > 0) {
-      this.points -= 1;
-      scoreLevelEl.innerText = this.points;
-      scoreOverlayEl[0].style = `transform: translateX(${100 - this.points}%)`;
-      scoreOverlayEl[1].style = `transform: translateX(-${100 - this.points}%)`;
+    if (!this.isIntroPlaying) {
+      if (this.points > 0) {
+        this.points -= Math.log10(this.rounds + 1);
+
+        scoreLevelEl.innerText = Math.round(this.points);
+        scoreOverlayEl[0].style = `transform: translateX(${
+          100 - Math.round(this.points)
+        }%)`;
+        scoreOverlayEl[1].style = `transform: translateX(-${
+          100 - Math.round(this.points)
+        }%)`;
+      } else {
+        this.triggerGameOver();
+      }
     }
 
     this.extras.forEach((extra, index) => {
@@ -65,103 +75,50 @@ class Level {
     });
   }
 
-  displayOptions() {
-    let optionHtml = '';
-    this.puzzle.options.forEach((option, index) => {
-      optionHtml += this.makeOption(option, index); //`<div class="option" data-optionId=${index}>${option[0]}<br />${option[1]}</div>`;
-    });
-
-    options.innerHTML = optionHtml;
-    document.querySelectorAll('.option').forEach(option => {
-      option.addEventListener('click', this.handleOptionSelected.bind(this));
-    });
-  }
-
-  makeOption(option, index) {
-    return `
-    <button class="option" data-optionId=${index}>
-      <svg viewBox="0 0 200 200">
-        <rect
-          x="80"
-          y="20"
-          width="40"
-          height="40"
-          style="fill: #ffffff;"
-        />
-        <rect
-          x="80"
-          y="60"
-          width="40"
-          height="80"
-          style="fill: ${option.middle};"
-        />
-        <rect
-          x="80"
-          y="120"
-          width="40"
-          height="60"
-          style="fill: ${option.feet};"
-        />
-      </svg>
-    </button>
-    `;
-  }
-
   handleOptionSelected(event) {
+    if (this.isIntroPlaying) {
+      return;
+    }
+
     const selectedOption = parseInt(event.target.dataset.optionid);
-    if (this.puzzle.isCorrectOption(selectedOption)) {
+    if (this.puzzle.solutionPosition === selectedOption) {
       this.isIntroPlaying = true;
+      event.target.classList.add('correct');
 
       this.puzzle.characters.find(
         character => character.isPlaceholder
       ).isPlaceholder = false;
 
-      this.game.updateScore(this.points);
+      this.game.updateScore(Math.round(this.points));
 
       new Promise(resolve => {
-        this.addRenderHook(this.animateVictory(resolve), 'victory');
+        this.renderer.addRenderHook(this.animateVictory(resolve), 'victory');
       })
         .then(() => {
           return new Promise(resolve => {
             this.animateOutro(resolve);
           });
         })
-        .then(() => this.init());
+        .then(() => this.nextRound());
     } else {
-      console.log('Mai incearca');
+      event.target.classList.add('incorrect');
+      this.triggerGameOver();
     }
   }
 
   animateIntro() {
     this.isIntroPlaying = true;
 
-    // this.addRenderHook(this.portalRenderer(), 'portal');
-
-    Promise.all(this.drawPlaceHolders())
+    Promise.all(this.addHooksForPreTeleportation())
+      .then(() => Promise.all(this.addHooksForTeleportation()))
       .then(() => {
-        const promises = [];
-        this.puzzle.characters.forEach((character, index) => {
-          character.alpha = 0;
-
-          promises.push(
-            new Promise(resolve => {
-              this.addRenderHook(
-                this.showCharacter.bind(this, resolve, character, index),
-                `character${index}`
-              );
-            })
-          );
-        });
-
-        return Promise.all(promises);
-      })
-      .then(() => {
-        // set options arrow
+        // position options arrow to match the missing character's position
         document.documentElement.style.cssText = `--placholderArrowPosition: ${
           this.puzzle.characters.find(char => char.isPlaceholder).position[0] -
-          options.getBoundingClientRect().x
+          optionsEl.getBoundingClientRect().x
         }px`;
-        options.classList.remove('options-hidden');
+
+        optionsEl.classList.remove('options-hidden');
         scoreRoundEl.classList.remove('hidden');
 
         this.isIntroPlaying = false;
@@ -169,33 +126,25 @@ class Level {
   }
 
   animateOutro(done) {
-    this.puzzle.characters.forEach(character => {
-      this.extras.push(character);
-      character.velocity =
-        Math.sign(Math.random() * 2 - 1) * Utils.random(15, 20);
-    });
-    options.classList.add('options-hidden');
+    this.puzzle.characters
+      .filter(character => !character.isPlaceholder)
+      .forEach(character => {
+        this.extras.push(character);
+        character.velocity =
+          Math.sign(Math.random() * 2 - 1) * Utils.random(15, 20);
+      });
+    optionsEl.classList.add('options-hidden');
     scoreRoundEl.classList.add('hidden');
     setTimeout(() => done(), 500);
   }
 
-  // Go make more general --> renderer class
-  addRenderHook(callback, name) {
-    this.renderHooks[name] = callback;
-  }
-
-  removeRenderHook(name) {
-    delete this.renderHooks[name];
-  }
-
-  //try animate joy
   animateVictory(done) {
     let animationTimingOffset = 0;
     let inReverse = false;
 
-    return ctx => {
+    return () => {
       if (animationTimingOffset <= 0 && inReverse) {
-        this.removeRenderHook('victory');
+        this.renderer.removeRenderHook('victory');
         done();
       }
       if (animationTimingOffset >= 1) {
@@ -207,14 +156,14 @@ class Level {
           if (char.position[1] >= this.game.canvas.height * 0.35) {
             char.position[1] = this.game.canvas.height * 0.35;
           } else {
-            char.position[1] += 10;
+            char.position[1] += 20;
           }
         });
 
         animationTimingOffset -= 0.1;
       } else {
         this.puzzle.characters.forEach(char => {
-          char.position[1] -= 10 * Math.random();
+          char.position[1] -= 20 * Math.random();
         });
 
         animationTimingOffset += 0.1;
@@ -222,23 +171,17 @@ class Level {
     };
   }
 
-  showCharacter(done, character, index) {
-    if (character.alpha > 0.98) {
-      this.removeRenderHook(`portal${index}`);
-      this.removeRenderHook(`character${index}`);
-      done();
-    }
-
-    character.alpha += (1 - character.alpha) * 0.1;
-  }
-
-  drawPlaceHolders() {
+  addHooksForPreTeleportation() {
     const promises = [];
     this.puzzle.characters.forEach((character, index) => {
       promises.push(
         new Promise(resolve => {
-          this.addRenderHook(
-            this.drawPlaceHolder(resolve, character, index),
+          this.renderer.addRenderHook(
+            this.renderer.drawTeleportationPlaceHolder(
+              resolve,
+              character,
+              index
+            ),
             `portal${index}`
           );
         })
@@ -248,52 +191,37 @@ class Level {
     return promises;
   }
 
-  drawPlaceHolder(done, character) {
-    let time = 0;
-    character.alpha = 0;
+  addHooksForTeleportation() {
+    const promises = [];
+    this.puzzle.characters.forEach((character, index) => {
+      character.alpha = 0;
 
-    return ctx => {
-      if (time >= 0.6) {
-        done();
-      } else {
-      }
-      time += (1 - time) * 0.15;
-
-      ctx.fillStyle = '#E9ECF5';
-      ctx.fillRect(
-        character.position[0] - (character.thickness / 2) * time,
-        character.position[1],
-        character.thickness * time,
-        character.thickness * 4.5 * time
+      promises.push(
+        new Promise(resolve => {
+          this.renderer.addRenderHook(
+            this.showCharacter.bind(this, resolve, character, index),
+            `character${index}`
+          );
+        })
       );
-    };
+    });
+
+    return promises;
   }
 
-  // drawPortal(done, position, index) {
-  //   let thinkness = 5;
-  //   let length = 5;
+  showCharacter(done, character, index) {
+    if (character.alpha > 0.98) {
+      this.renderer.removeRenderHook(`portal${index}`);
+      this.renderer.removeRenderHook(`character${index}`);
+      done();
+    }
 
-  //   let value = 0;
-  //   let easing = 0;
+    character.alpha += (1 - character.alpha) * 0.1;
+  }
 
-  //   return ctx => {
-  //     if (value >= 1) {
-  //       this.removeRenderHook(`portal${index}`);
-  //       value = 1;
-  //       return;
-  //     }
-
-  //     value += 0.055;
-  //     easing = 1 - Math.cos((value * Math.PI) / 2);
-  //     thinkness = easing * 40;
-
-  //     ctx.fillStyle = '#ffffff';
-  //     ctx.fillRect(
-  //       position[0] - thinkness / 2,
-  //       position[1] - 100 + thinkness * 2,
-  //       thinkness,
-  //       easing * 200
-  //     );
-  //   };
-  // }
+  triggerGameOver() {
+    this.isIntroPlaying = true;
+    this.game.gameOver();
+    this.animateOutro(() => {});
+  }
 }

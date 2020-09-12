@@ -1,43 +1,40 @@
-class Puzzle {
+class PuzzleGenerator {
   constructor(game) {
     this.game = game;
   }
 
-  isCorrectOption(option) {
-    return this.solutionPosition === -1 || this.solutionPosition === option;
+  generate(party) {
+    const characters = this._generateCharacters(party);
+
+    let placeHolderPosition;
+    let solutionPosition = Utils.random(0, 3);
+    let options = [];
+
+    do {
+      placeHolderPosition = Utils.random(0, party.pattern.length - 1);
+    } while (
+      party.pattern.filter(
+        value => party.pattern[placeHolderPosition] === value
+      ).length === 1
+    );
+
+    options[solutionPosition] = characters[placeHolderPosition].colors;
+    options = this._generateRandomOptions(options);
+    characters[placeHolderPosition].isPlaceholder = true;
+
+    return {
+      characters,
+      options,
+      solutionPosition
+    };
   }
 
-  generate() {
-    this.characters = [];
+  _generateCharacters(party) {
+    let auxPosition, auxCharacter;
 
-    const pattern = PartyGenerator.generateParty();
-    const placeHolderPosition = Utils.random(0, pattern.length - 1);
-    this._generateCharacters(pattern);
-
-    this.options = [];
-
-    this.solutionPosition = Utils.random(0, 3);
-
-    // If the solution is the one character that is istinct then the others, than consier any charater a good solution
-    if (
-      pattern.filter(value => pattern[placeHolderPosition] === value).length ===
-      1
-    ) {
-      this.solutionPosition = -1;
-    } else {
-      this.options[this.solutionPosition] = this.characters[
-        placeHolderPosition
-      ].colors;
-    }
-    this._generateRandomOptions();
-
-    this.characters[placeHolderPosition].isPlaceholder = true;
-  }
-
-  _generateCharacters(pattern) {
-    let auxPosition,
-      auxCharacter,
-      protos = [];
+    const { pattern } = party,
+      protos = [],
+      characters = [];
 
     for (let i = 0; i < pattern.length; i++) {
       auxPosition = [
@@ -50,16 +47,33 @@ class Puzzle {
         auxCharacter.position = auxPosition;
       } else {
         auxCharacter = new Character(auxPosition);
-        protos.push(auxCharacter);
+        protos[pattern[i]] = auxCharacter;
       }
 
-      this.characters.push(auxCharacter);
+      characters.push(auxCharacter);
     }
+
+    if (party.twist) {
+      switch (party.twist) {
+        case 0:
+          characters.forEach(
+            character => (character.colors.middle = characters[0].colors.middle)
+          );
+          break;
+        case 1:
+          characters.forEach(
+            character => (character.colors.feet = characters[0].colors.feet)
+          );
+          break;
+      }
+    }
+
+    return characters;
   }
 
-  _generateRandomOptions() {
+  _generateRandomOptions(options) {
     for (let i = 0; i < 4; i++) {
-      if (i === this.solutionPosition) {
+      if (options[i]) {
         continue;
       }
       let config;
@@ -69,11 +83,13 @@ class Puzzle {
           feet: palette[Utils.random(0, palette.length - 1)]
         };
       } while (
-        this.options.filter(
+        options.filter(
           el => el.middle === config.middle && el.feet === config.feet
         ).length
       );
-      this.options[i] = config;
+      options[i] = config;
     }
+
+    return options;
   }
 }
