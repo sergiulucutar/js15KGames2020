@@ -1,6 +1,7 @@
 var scoreEl = document.querySelector('.score-level_total');
 var levelEl = document.querySelector('.level');
 var endEl = document.querySelector('.end');
+var specialSreenEl = document.querySelector('.screen-special');
 
 class Game {
   get score() {
@@ -21,10 +22,23 @@ class Game {
 
     this._score = 0;
     this.isMenuShown = false;
+    this.showStoryending = false;
 
-    endEl
-      .querySelector('button:first-of-type')
-      .addEventListener('click', this.resetLevel.bind(this));
+    endEl.querySelector('button').addEventListener('click', () => {
+      if (this.showStoryending) {
+        this.history.addGregToAll();
+        endEl.classList.add('hidden');
+        specialSreenEl.classList.remove('hidden');
+      } else {
+        this.resetLevel();
+      }
+    });
+
+    specialSreenEl.querySelector('button').addEventListener('click', () => {
+      delete this.showStoryending;
+      specialSreenEl.classList.add('hidden');
+      this.resetLevel();
+    });
   }
 
   loop() {
@@ -57,17 +71,6 @@ class Game {
     }, 210);
   }
 
-  gameOver() {
-    this.history.set(this.score);
-
-    endEl.querySelector('h2').innerText = this.score;
-    endEl.querySelector('.history').innerHTML = this.getHistoryMarkup();
-
-    levelEl.classList.add('hidden');
-    endEl.getElementsByClassName.visibility = 'visible';
-    endEl.classList.remove('hidden');
-  }
-
   resetLevel() {
     this.score = 0;
 
@@ -79,6 +82,24 @@ class Game {
     this.isMenuShown = false;
   }
 
+  gameOver() {
+    this.history.set(this.score);
+
+    if (this.history.get()[0].score === this.score) {
+      this.showStoryending = true;
+      this.setEndButtonText('continue');
+    } else {
+      this.setEndButtonText('again');
+    }
+
+    endEl.querySelector('h2').innerText = this.score;
+    endEl.querySelector('.history').innerHTML = this.getHistoryMarkup();
+
+    levelEl.classList.add('hidden');
+    endEl.getElementsByClassName.visibility = 'visible';
+    endEl.classList.remove('hidden');
+  }
+
   getHistoryMarkup() {
     let html = '';
     this.history.get().forEach(element => {
@@ -87,5 +108,11 @@ class Game {
       }</span></div>`;
     });
     return html;
+  }
+
+  setEndButtonText(text) {
+    const button = endEl.querySelector('button');
+    button.innerText = text;
+    button.dataset.text = text;
   }
 }

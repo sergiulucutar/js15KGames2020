@@ -368,7 +368,7 @@ canvas {
   }
 }
 
-.screen-start {
+.screen {
   position: absolute;
 
   display: flex;
@@ -386,7 +386,13 @@ canvas {
   p {
     margin-top: 0;
     margin-bottom: 28px;
+  }
 
+  &.hidden {
+    display: none;
+  }
+
+  &-start p {
     &:first-of-type {
       font-family: var(--font-serif);
       font-size: 1.8rem;
@@ -400,8 +406,15 @@ canvas {
     }
   }
 
-  &.hidden {
-    display: none;
+  &-special p {
+    &:first-of-type {
+      font-family: var(--font-serif);
+      font-size: 1.8rem;
+    }
+
+    &:nth-of-type(2) em {
+      font-family: var(--font-serif);
+    }
   }
 }
 
@@ -416,15 +429,13 @@ button.btn {
 
   background-color: var(--c_yellow);
   color: var(--c_white);
-  // background-color: white;
-  // color: #a7b9dd;
 
   font-family: var(--font-sans-serif);
   font-weight: bolder;
   font-size: 2rem;
 
   &::after {
-    content: attr(text);
+    content: attr(data-text);
 
     position: absolute;
     top: 0;
@@ -449,7 +460,6 @@ button.btn {
   &:hover {
     &::after {
       height: 64px;
-      // padding: 12px 0;
     }
   }
 }
@@ -460,14 +470,6 @@ button.btn {
 
 .georgia {
   font-family: var(--font-serif);
-}
-
-.bold {
-  font-weight: bolder;
-}
-
-.italic {
-  font-style: italic;
 }
 
 .white {

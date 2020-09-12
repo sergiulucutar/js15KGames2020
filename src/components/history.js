@@ -32,4 +32,10 @@ class History {
     currentScores.sort((a, b) => b.score - a.score);
     localStorage.setItem(this.localStorageKey, JSON.stringify(currentScores));
   }
+
+  addGregToAll() {
+    const history = this.get();
+    history.forEach(entry => (entry['name'] = '(Greg)'));
+    localStorage.setItem(this.localStorageKey, JSON.stringify(history));
+  }
 }
